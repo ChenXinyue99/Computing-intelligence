@@ -1,0 +1,154 @@
+import random
+import math
+
+T = 1  # 期望
+count = 1 #更新轮数
+Eta = 0.9  # 学习率
+E = 9e5  # 误差
+
+class Node():  # 结点类定义
+    def __init__(self, num, level, net, o, theta, delta):
+        self.num = num  # 结点编号
+        self.level = level  # 结点的层
+        self.net = net  # 节点输入
+        self.o = o  # 节点输出
+        self.theta = theta  # 结点偏置
+        self.delta = delta  # 更新所用的中间变量
+
+demo_input = [[1.55, 0.49],  # 输入样本//用户可更改
+              [1.69, 0.58],  # 此处的样本含义为 身高 体重
+              [1.56, 0.50],
+              [1.70, 0.65],
+              [1.80, 0.75],
+              [1.78, 0.64],
+              [1.88, 0.70],
+              [1.90, 0.75],
+              [1.54, 0.56],
+              [1.75, 0.80]]
+
+demo_T = [1] * len(demo_input) # 输出期望
+                               # 此处的期望含义为 人类
+
+def node_initialize():  # 结点初始化
+    k = 0
+    global client_input
+    client_input = [2, 3, 3, 1]  # 网络每一层的节点数//确定了网络结构///用户可更改
+    global node
+    node = []
+    for i in range(len(client_input)):
+        for j in range(client_input[i]):
+            node.append(Node(k, i, 0, 0, random.random() - 0.5, 0))
+            k += 1
+
+def evaluation():  # 将用户输入的样本赋值给结点
+    global T
+    i = random.randint(0, len(demo_input) - 1)
+    for j in range(len(demo_input[i])):
+        node[j].o = demo_input[i][j]
+    T = demo_T[i]
+
+def w_initialize():  # 权重初始化//随机
+    global w
+    w = [[]for i in range(len(node))]
+    for i in range(len(node)):
+        for j in range(len(node)):
+            w[i].append(random.random() - 0.5 if node[j].level - node[i].level == 1 else 0)
+
+def active_function(x):  # 激活函数
+    if(x < 0):
+        return 1 / (1 + math.exp(x))
+    else:
+        return 1 / (1 + math.exp(-x))
+
+def diff_active_function(x):  # 激活函数的导函数//目前使用的sigmoid函数的特性
+    return active_function(x) * (1 - active_function(x))
+
+def compute_delta(j):  # 计算中间变量δ
+    temp = 0
+    if node[j].level == node[-1].level:
+        node[j].delta = (node[j].o - T) * diff_active_function(node[j].net)
+    if (node[j].level != node[-1].level) and (node[j].level != node[0].level):
+        for k in range(len(node) - 1, -1, -1):
+            if node[k].level - node[j].level == 1:
+                temp += node[k].delta * w[j][k]
+        node[j].delta = temp
+        node[j].delta *= diff_active_function(node[j].net)
+    if node[j].level == node[0].level:
+        node[j].delta = 0
+
+def judge():  # 正向计算
+    temp = 0
+    for j in range(len(node)):
+        for i in range(len(node)):
+            if node[j].level - node[i].level == 1:
+                temp += w[i][j] * node[i].o
+        node[j].net = temp + node[j].theta
+        temp = 0
+        if node[j].level != 0:
+            node[j].o = active_function(node[j].net)
+    return 0.5 * ((T - node[-1].o) ** 2)
+
+def update():  # 反向更新
+    for j in range(len(node) - 1, -1, -1):
+        compute_delta(j)
+    for j in range(len(node) - 1, -1, -1):
+        for i in range(len(node) - 1, -1, -1):
+            if node[j].level - node[i].level == 1:
+                w[i][j] += -1 * Eta * node[j].delta * node[i].o
+        node[j].theta += -1 * Eta * node[j].theta
+
+def check():
+    w_check = w  # 有效权值
+    k = 0
+    temp = 0
+    input_check = [1.6, 0.5]  # 测试样本//用户可输入
+    node_check = []
+
+    for i in range(len(client_input)):
+        for j in range(client_input[i]):
+            node_check.append(Node(k, i, 0, 0, node[k].theta, 0))
+            k += 1
+
+    for i in range(len(node)):  # 保留原节点中num、level、theta，而net、o、delta初始化置零
+        if node_check[i].level == 0:
+            node_check[i].o = input_check[i]  # 对第一层的节点的输入进行赋值
+
+    # 前向计算得出最终输出
+    for j in range(len(node)):
+        for i in range(len(node)):
+            if node_check[j].level - node_check[i].level == 1:
+                temp += w_check[i][j] * node_check[i].o
+        node_check[j].net = temp + node_check[j].theta
+        temp = 0
+        if node_check[j].level != 0:
+            node_check[j].o = active_function(node_check[j].net)
+    
+    print('')
+    print('测试样本：')
+    print(input_check)
+    print('测试结果：')
+    print(node_check[-1].o)
+    print('是否为正常身高体重？')
+    if (node_check[-1].o - node[-1].o > 0.001) or (node_check[-1].o - node[-1].o < -0.001):  # 判断精度//用户可更改
+        print('NO')
+    else:
+        print('YES')
+
+
+if __name__ == '__main__':  # 主函数
+    node_initialize()
+    w_initialize()
+    while(count <= 20000):  # 训练轮数//用户可修改
+        print('')
+        print("第%d次训练" % count)
+        evaluation()
+        E = judge()
+        print('输出：%f' %node[-1].o)
+        print('误差：%f' %E)
+        update()
+        count += 1
+    print('')
+    print('训练结束！')
+    print("结点权重为：")
+    print(w)
+    check()
