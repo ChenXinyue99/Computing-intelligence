@@ -1,0 +1,98 @@
+input = [[56, 33],
+         [28, 20],
+         [18, 40],
+         [80, 50],
+         [70, 10]]  # 输入样本[温度, 湿度]
+
+output = []  # 输出.灌溉时间
+temperature_membership = []  # 温度各等级的隶属度
+humidity_membership = []  # 湿度各等级的隶属度
+
+########## 温度等级-低、中、较高、高的分段函数 ##########
+def temperature_low(T):
+    if T > 0 and T < 25:
+        temperature_membership.append((-1 / 25) * T + 1)
+    else:
+        temperature_membership.append(0)
+
+def temperature_middle(T):
+    if T > 0 and T <= 25:
+        temperature_membership.append((1 / 25) * T)
+    if T > 25 and T < 50:
+        temperature_membership.append((-1 / 25) * T + 2)
+    else:
+        temperature_membership.append(0)
+
+def temperature_high(T):
+    if T > 25 and T <= 50:
+        temperature_membership.append((1 / 25) * T - 1)
+    if T > 50 and T < 75:
+        temperature_membership.append((-1 / 25) * T + 3)
+    else:
+        temperature_membership.append(0)
+
+def temperature_ultra_high(T):
+    if T > 50 and T <= 75:
+        temperature_membership.append((1 / 25) * T - 2)
+    if T > 75 and T < 100:
+        temperature_membership.append((-1 / 25) * T + 4)
+    else:
+        temperature_membership.append(0)
+
+########## 湿度等级-小、中、大的分段函数 ##########
+def humidity_low(D):
+    if D > 0 and D <=25:
+        humidity_membership.append((-1 / 25) * D + 1)
+    else:
+        humidity_membership.append(0)
+
+def humidity_middle(D):
+    if D > 15 and D <= 30:
+        humidity_membership.append((1 / 15) * D - 1)
+    if D > 30 and D <= 45:
+        humidity_membership.append((-1 / 15) * D + 3)
+    else:
+        humidity_membership.append(0)
+
+def humidity_high(D):
+    if D > 35 and D <= 60:
+        humidity_membership.append((1 / 25) * D - 1.4)
+    else:
+        humidity_membership.append(0)
+
+def minimum(i, j):  # 求最小值（‘且’规则）
+    return min(temperature_membership[j], humidity_membership[i])
+
+def fuzzy(k):  # 求温度隶属和湿度隶属度
+    temperature_low(input[k][0])
+    temperature_middle(input[k][0])
+    temperature_high(input[k][0])
+    temperature_ultra_high(input[k][0])
+
+    humidity_low(input[k][1])
+    humidity_middle(input[k][1])
+    humidity_high(input[k][1])
+
+rule = [[500, 500, 1000, 1000],
+        [100, 100, 100, 500],
+        [1000, 100, 500, 500]]  # 规则库：100.短、500.中、1000.长//行为温度列为湿度
+
+for k in range(len(input)):
+    fuzzy(k)  # 求该样本的温度隶属和湿度隶属度
+    rule_menbership = [0, 0, 0]  # 浇灌时间分别为短、中、长的隶属度
+
+    for i in range(len(rule)):  # 求出浇灌时间分别为短、中、长的隶属度
+        for j in range(len(rule[0])):
+            if rule[i][j] == 100 and rule_menbership[0] < minimum(i, j):
+                rule_menbership[0] = minimum(i, j)
+            if rule[i][j] == 500 and rule_menbership[1] < minimum(i, j):
+                rule_menbership[1] = minimum(i, j)
+            if rule[i][j] == 1000 and rule_menbership[2] < minimum(i, j):
+                rule_menbership[2] = minimum(i, j)
+
+    output.append((100 * rule_menbership[0] + 500 * rule_menbership[1] + 1000 * rule_menbership[2]) * (1 / sum(rule_menbership)))  # 重心法求出对应样本的输出
+    temperature_membership.clear()  # 清空温度隶属度列表
+    humidity_membership.clear()  # 清空湿度隶属度列表
+
+for i in range(len(input)):  # 打印浇灌时间
+    print("温度：%d 湿度：%d 灌溉时间：%f" % (input[i][0], input[i][1], output[i]))
